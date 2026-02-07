@@ -1,0 +1,8 @@
+name = "image-bookmark"
+main = "src/worker.js"
+compatibility_date = "2024-12-10"
+
+[[kv_namespaces]]
+binding = "BOOKMARKS"
+# Replace with your KV namespace ID
+id = "ea031c55e4044da3925dad031c7ad2ad"
