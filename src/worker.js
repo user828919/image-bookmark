@@ -123,14 +123,20 @@ async function handleApi(request, env, userId, url) {
       .filter(Boolean);
 
     const bookmarks = await listBookmarks(env, userId);
-    const filtered = bookmarks.filter((b) => {
+    const filtered = bookmarks
+      .filter((b) => {
       const tagsOk = tags.length === 0 || tags.every((t) => b.tags.includes(t));
       const qOk =
         q.length === 0 ||
         b.imageUrl.toLowerCase().includes(q) ||
         b.tags.some((t) => t.toLowerCase().includes(q));
       return tagsOk && qOk;
-    });
+    })
+      .sort((a, b) => {
+        const aTime = Date.parse(a.createdAt || a.updatedAt || 0);
+        const bTime = Date.parse(b.createdAt || b.updatedAt || 0);
+        return bTime - aTime;
+      });
 
     return jsonResponse({ items: filtered });
   }
@@ -150,6 +156,7 @@ async function handleApi(request, env, userId, url) {
       id,
       imageUrl,
       tags: normalizedTags,
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
@@ -594,6 +601,7 @@ const cancelEditBtn = $("cancelEdit");
 const confirmDeleteBtn = $("confirmDelete");
 const cancelDeleteBtn = $("cancelDelete");
 let activeBookmark = null;
+let bookmarksState = [];
 
 function parseTags(value) {
   return value
@@ -654,7 +662,30 @@ async function loadBookmarks() {
 
   const resp = await fetch("/api/bookmarks?" + params.toString());
   const data = await resp.json();
-  renderGrid(data.items || []);
+  bookmarksState = sortBookmarks(data.items || []);
+  renderGrid(bookmarksState);
+}
+
+function sortBookmarks(items) {
+  return [...items].sort((a, b) => {
+    const aTime = Date.parse(a.updatedAt || a.createdAt || 0);
+    const bTime = Date.parse(b.updatedAt || b.createdAt || 0);
+    return bTime - aTime;
+  });
+}
+
+function upsertBookmark(item) {
+  const index = bookmarksState.findIndex((b) => b.id === item.id);
+  if (index >= 0) {
+    bookmarksState[index] = item;
+  } else {
+    bookmarksState.unshift(item);
+  }
+  bookmarksState = sortBookmarks(bookmarksState);
+}
+
+function removeBookmarkByUrl(imageUrl) {
+  bookmarksState = bookmarksState.filter((b) => b.imageUrl !== imageUrl);
 }
 
 function renderGrid(items) {
@@ -711,15 +742,22 @@ $("save").addEventListener("click", async () => {
   const tags = parseTags($("tags").value);
   if (!imageUrl) return alert("Image URL required");
 
-  await fetch("/api/bookmarks", {
+  const resp = await fetch("/api/bookmarks", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ imageUrl, tags }),
   });
+  if (!resp.ok) {
+    return alert("Failed to save bookmark");
+  }
+  const data = await resp.json();
+  if (data.item) {
+    upsertBookmark(data.item);
+    renderGrid(bookmarksState);
+  }
 
   $("imageUrl").value = "";
   $("tags").value = "";
-  await loadBookmarks();
 });
 
 $("refresh").addEventListener("click", loadBookmarks);
@@ -750,13 +788,20 @@ closePreviewBtn.addEventListener("click", () => {
 saveTagsBtn.addEventListener("click", async () => {
   if (!activeBookmark) return;
   const tags = parseTags(editTagsInput.value);
-  await fetch("/api/tags", {
+  const resp = await fetch("/api/tags", {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ imageUrl: activeBookmark.imageUrl, tags }),
   });
+  if (!resp.ok) {
+    return alert("Failed to update tags");
+  }
+  const data = await resp.json();
+  if (data.item) {
+    upsertBookmark(data.item);
+  }
   closeDialog(editDialog);
-  await loadBookmarks();
+  renderGrid(bookmarksState);
 });
 
 cancelEditBtn.addEventListener("click", () => {
@@ -765,14 +810,19 @@ cancelEditBtn.addEventListener("click", () => {
 
 confirmDeleteBtn.addEventListener("click", async () => {
   if (!activeBookmark) return;
-  await fetch("/api/bookmarks", {
+  const imageUrl = activeBookmark.imageUrl;
+  const resp = await fetch("/api/bookmarks", {
     method: "DELETE",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ imageUrl: activeBookmark.imageUrl }),
+    body: JSON.stringify({ imageUrl }),
   });
+  if (!resp.ok) {
+    return alert("Failed to delete bookmark");
+  }
+  removeBookmarkByUrl(imageUrl);
   closeDialog(confirmDialog);
   closeDialog(previewDialog);
-  await loadBookmarks();
+  renderGrid(bookmarksState);
 });
 
 cancelDeleteBtn.addEventListener("click", () => {

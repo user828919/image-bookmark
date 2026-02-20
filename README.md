@@ -1,4 +1,4 @@
-# Image Bookmark (Cloudflare Workers + KV)
+# Image Bookmark (Cloudflare Workers + KV) by Codex
 
 A lightweight image bookmarking app built on Cloudflare Workers. Each user is scoped by UUID and enters via `https://your-domain.com/<uuid>`. Bookmarks and tags are stored in Workers KV.
 
