@@ -460,7 +460,7 @@ body {
 
 .card img {
   width: 100%;
-  height: 400px;
+  height: clamp(220px, 35vw, 360px);
   object-fit: contain;
   display: block;
 }
@@ -514,8 +514,35 @@ body {
 }
 
 @media (max-width: 640px) {
+  .hero {
+    padding: 16px 12px;
+  }
+  .hero-inner {
+    padding: 0;
+    gap: 12px;
+  }
+  .hero h1 {
+    font-size: 24px;
+  }
+  .hero p {
+    font-size: 13px;
+  }
+  .search-panel input,
+  .form-row input {
+    padding: 8px 10px;
+  }
+  .search-panel button,
+  .form-row button {
+    padding: 8px 10px;
+  }
+  .search-panel {
+    gap: 8px;
+  }
   .grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .card img {
+    height: clamp(160px, 45vw, 240px);
   }
 }
 
